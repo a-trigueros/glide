@@ -1,4 +1,8 @@
-use ratatui::{DefaultTerminal, Frame};
+use ratatui::{
+    DefaultTerminal, Frame,
+    layout::{Constraint, Layout},
+    widgets::Block,
+};
 
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
@@ -16,13 +20,29 @@ fn app(terminal: &mut DefaultTerminal) -> std::io::Result<()> {
 }
 
 fn render(frame: &mut Frame) {
-    frame.render_widget("hello world", frame.area());
+    let layout = Layout::vertical([
+        Constraint::Min(1),
+        Constraint::Length(3),
+        Constraint::Min(1),
+    ]);
+
+    let [messages_area, input_area, help_area] = frame.area().layout(&layout);
+
+    render_message_area(frame, messages_area);
+    render_input_area(frame, input_area);
+    render_help_area(frame, help_area);
 }
 
-#[cfg(test)]
-mod test {
-    #[test]
-    fn name() {
-        todo!();
-    }
+fn render_message_area(frame: &mut Frame, area: ratatui::prelude::Rect) {
+    let surrounding = Block::bordered().title("messages");
+    frame.render_widget(surrounding, area);
+}
+
+fn render_input_area(frame: &mut Frame, area: ratatui::prelude::Rect) {
+    let surrounding = Block::bordered().title("input");
+    frame.render_widget(surrounding, area);
+}
+
+fn render_help_area(frame: &mut Frame, area: ratatui::prelude::Rect) {
+    frame.render_widget("help area", area);
 }
