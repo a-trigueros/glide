@@ -1,0 +1,2 @@
+[env]
+GAMBLE_TEST_COMMAND = 'cargo test'
