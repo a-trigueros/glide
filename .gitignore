@@ -26,3 +26,5 @@ target
 /target
 
 .serena/
+.DS_Store
+
