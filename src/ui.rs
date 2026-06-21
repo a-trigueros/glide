@@ -73,9 +73,9 @@ impl App {
 
     fn render(&self, textarea: &TextArea, frame: &mut Frame) {
         let layout = Layout::vertical([
-            Constraint::Min(1),
-            Constraint::Length(3),
-            Constraint::Min(1),
+            Constraint::Fill(3),
+            Constraint::Min(2),
+            Constraint::Length(1),
         ]);
 
         let [messages_area, input_area, help_area] = frame.area().layout(&layout);
