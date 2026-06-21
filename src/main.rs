@@ -1,25 +1,21 @@
 use std::io;
 
-use crossterm::event::{Event, KeyCode, KeyEvent};
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Layout},
     text::Line,
-    widgets::{Block, List, Paragraph},
+    widgets::{Block, Borders, List},
 };
-use tui_input::{Input, backend::crossterm::EventHandler};
+use ratatui_textarea::{Input, Key, TextArea};
 
 #[derive(Debug, Default)]
 struct App {
-    input: Input,
     messages: Vec<String>,
     need_exit: bool,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 enum Error {
-    NoMatchingCommand,
     Io {
         #[allow(dead_code)]
         source: io::Error,
@@ -46,49 +42,63 @@ type Result<T> = std::result::Result<T, Error>;
 
 impl App {
     fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+        let mut textarea = TextArea::default();
+
+        textarea.set_block(Block::default().borders(Borders::ALL));
+
         loop {
             if self.need_exit {
                 return Ok(());
             }
 
-            terminal.draw(|frame| self.render(frame))?;
+            terminal.draw(|frame| self.render(&textarea, frame))?;
+
             let event = crossterm::event::read()?;
-            if let Event::Key(KeyEvent {
-                code,
-                modifiers: _,
-                kind: _,
-                state: _,
-            }) = event
-            {
-                match code {
-                    KeyCode::Enter => {
-                        let typed = self.input.value().to_string();
-                        self.input.reset();
-                        self.handle_command(&typed)
-                            // or_else validate fuzzyfinding
-                            .or_else(|_| -> Result<()> {
-                                self.messages.push(typed);
-                                Ok(())
-                            })?;
-                    }
-                    KeyCode::Char('@') => {
-                        self.messages
-                            .push("missing feature: fzf in files".to_string());
-                        self.input.handle_event(&event);
-                    }
-                    KeyCode::Char('/') => {
-                        self.messages.push("missing feature: suggest commands (native and user added) if there are some".to_string());
-                        self.input.handle_event(&event);
-                    }
-                    _ => {
-                        self.input.handle_event(&event);
-                    }
+            let input = event.into();
+
+            self.handle_input_event(&mut textarea, input);
+        }
+    }
+
+    fn handle_input_event(&mut self, textarea: &mut TextArea<'_>, input: Input) {
+        match input {
+            Input {
+                key: Key::Enter, ..
+            } => {
+                let typed = textarea.lines().join("\n");
+
+                if typed == "/quit" {
+                    self.need_exit = true;
                 }
+
+                textarea.clear();
+                self.messages.push(typed);
+            }
+            Input {
+                key: Key::Char('@'),
+                ..
+            } => {
+                self.messages
+                    .push("missing feature: fzf in files".to_string());
+                textarea.input(input);
+            }
+            Input {
+                key: Key::Char('/'),
+                ..
+            } => {
+                self.messages.push(
+                    "missing feature: suggest commands (native and user added) if there are some"
+                        .to_string(),
+                );
+                textarea.input(input);
+            }
+            input => {
+                textarea.input(input);
             }
         }
     }
 
-    fn render(&self, frame: &mut Frame) {
+    fn render(&self, textarea: &TextArea, frame: &mut Frame) {
         let layout = Layout::vertical([
             Constraint::Min(1),
             Constraint::Length(3),
@@ -98,7 +108,7 @@ impl App {
         let [messages_area, input_area, help_area] = frame.area().layout(&layout);
 
         self.render_message_area(frame, messages_area);
-        self.render_input_area(frame, input_area);
+        frame.render_widget(textarea, input_area);
         self.render_help_area(frame, help_area);
     }
 
@@ -112,22 +122,9 @@ impl App {
 
         frame.render_widget(list, area);
     }
-    fn render_input_area(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
-        let paragraph = Paragraph::new(self.input.value()).block(Block::bordered().title("Input"));
-        frame.render_widget(paragraph, area);
-    }
+
     fn render_help_area(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
         frame.render_widget("help area", area);
-    }
-
-    fn handle_command(&mut self, command: &str) -> Result<()> {
-        match command {
-            "/quit" => {
-                self.need_exit = true;
-                Ok(())
-            }
-            _ => Err(Error::NoMatchingCommand),
-        }
     }
 }
 
